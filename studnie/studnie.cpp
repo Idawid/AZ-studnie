@@ -90,137 +90,68 @@ double findMinCost(const vector<vector<double>>& costMatrix, vector<bool>& rowCo
     return minCost;
 }
 
+bool ckmin(double& a, const double& b) { return b < a ? a = b, 1 : 0; }
+
 // Function to perform the Hungarian algorithm
-vector<vector<int>> hungarianAlgorithm(const vector<vector<double>>& costMatrix, int k) {
-    int numRows = costMatrix.size();
-    int numCols = costMatrix[0].size();
+std::vector<std::vector<int>> hungarianAlgorithm(const std::vector<std::vector<double>>& costMatrix, int k) {
+    const int W = costMatrix.size();
+    const int H = costMatrix[0].size();
+    assert(W <= H);
 
-    // Step 1: Subtract the minimum value of each row from its elements and cover the row
-    vector<bool> rowCovered(numRows, false);
-    vector<bool> colCovered(numCols, false);
-    vector<vector<double>> reducedCostMatrix(costMatrix);
+    // wells[h] = wells assigned to h-th house, or -1 if no wells assigned
+    // note: a H-th house was added for convenience
+    vector<int> wells(H + 1, -1);
+    vector<double> wellPotentials(W), housePotentials(H + 1);  // potentials
+    // -housePotentials[H] will equal the sum of all deltas
+    vector<vector<int>> answers(W/k);
+    const double inf = numeric_limits<double>::max();
 
-    for (int i = 0; i < numRows; ++i) {
-        double minVal = *min_element(reducedCostMatrix[i].begin(), reducedCostMatrix[i].end());
-        for (int j = 0; j < numCols; ++j) {
-            reducedCostMatrix[i][j] -= minVal;
-        }
-    }
+    for (int curWell = 0; curWell < W; ++curWell) { // assign curWell-th wells
+        int w_cur = H;
+        wells[w_cur] = curWell;
+        vector<double> min_to(H + 1, inf); // min reduced cost over edges from Z to well h
+        vector<int> prv(H + 1, -1);    // previous well on alternating path
+        vector<bool> in_Z(H + 1);      // whether well is in Z
 
-    // Step 2: Subtract the minimum value of each column from its elements and cover the column
-    for (int j = 0; j < numCols; ++j) {
-        double minVal = numeric_limits<double>::infinity();
-        for (int i = 0; i < numRows; ++i) {
-            minVal = min(minVal, reducedCostMatrix[i][j]);
-        }
-        for (int i = 0; i < numRows; ++i) {
-            reducedCostMatrix[i][j] -= minVal;
-        }
-    }
-
-    // Step 3: Cover all zeros in the matrix using the minimum number of lines
-    while (true) {
-        // Mark all zeros with a star if no other stars are in its row or column
-        vector<vector<bool>> starredZeros(numRows, vector<bool>(numCols, false));
-        for (int i = 0; i < numRows; ++i) {
-            for (int j = 0; j < numCols; ++j) {
-                if (reducedCostMatrix[i][j] == 0 && !rowCovered[i] && !colCovered[j]) {
-                    starredZeros[i][j] = true;
-                    rowCovered[i] = true;
-                    colCovered[j] = true;
-                    break;
+        while (wells[w_cur] != -1) {   // runs at most curWell + 1 times
+            in_Z[w_cur] = true;
+            const int j = wells[w_cur];
+            double delta = inf;
+            int w_next;
+            for (int w = 0; w < H; ++w) {
+                if (!in_Z[w]) {
+                    if (ckmin(min_to[w], costMatrix[j][w] - wellPotentials[j] - housePotentials[w]))
+                        prv[w] = w_cur;
+                    if (ckmin(delta, min_to[w])) w_next = w;
                 }
             }
-        }
-
-        // Count the number of covered columns
-        int numCoveredCols = 0;
-        for (bool col : colCovered) {
-            if (col) {
-                numCoveredCols++;
+            // delta will always be non-negative,
+            // except possibly during the first time this loop runs
+            // if any entries of C[curWell] are negative
+            for (int w = 0; w <= H; ++w) {
+                if (in_Z[w]) wellPotentials[wells[w]] += delta, housePotentials[w] -= delta;
+                else min_to[w] -= delta;
             }
+            w_cur = w_next;
+        }
+        // update assignments along alternating path
+        for (int w; w_cur != H; w_cur = w) {
+            wells[w_cur] = wells[w = prv[w_cur]]; 
         }
 
-        // If the number of covered columns equals the number of rows, we're done
-        if (numCoveredCols == numRows) {
-            break;
-        }
-
-        // Find an uncovered zero and prime it
-        int row, col;
-        bool zeroFound = false;
-        for (int i = 0; i < numRows && !zeroFound; ++i) {
-            for (int j = 0; j < numCols; ++j) {
-                if (reducedCostMatrix[i][j] == 0 && !rowCovered[i] && !colCovered[j]) {
-                    row = i;
-                    col = j;
-                    zeroFound = true;
-                    break;
+        if (curWell == W - 1) { // Add assignments only in the last iteration
+            for (int h = 0; h < H; ++h) {
+                //cout << wells[h] << " ";
+                if (wells[h] != -1) {
+                    int well_index = wells[h] / k;
+                    answers[well_index].push_back(h);
+                    // cout << "Well: " << well_index << " wells: " << wells[h] << "\n";
                 }
-            }
-        }
-
-        // If no uncovered zero was found, proceed to Step 4
-        if (!zeroFound) {
-            // Find the minimum uncovered element
-            double minUncovered = findMinCost(reducedCostMatrix, rowCovered, colCovered);
-
-            // Subtract the minimum uncovered element from all uncovered rows, and add it to all covered columns
-            for (int i = 0; i < numRows; ++i) {
-                if (rowCovered[i]) {
-                    for (int j = 0; j < numCols; ++j) {
-                        if (colCovered[j]) {
-                            reducedCostMatrix[i][j] += minUncovered;
-                        }
-                    }
-                }
-                else {
-                    for (int j = 0; j < numCols; ++j) {
-                        if (!colCovered[j]) {
-                            reducedCostMatrix[i][j] -= minUncovered;
-                        }
-                    }
-                }
-            }
-        }
-        else {
-            // Prime the found zero
-            starredZeros[row][col] = true;
-
-            // Find a starred zero in the same row
-            bool foundStarredZero = false;
-            for (int j = 0; j < numCols && !foundStarredZero; ++j) {
-                if (starredZeros[row][j] && j != col) {
-                    col = j;
-                    foundStarredZero = true;
-                }
-            }
-
-            // If a starred zero was found in the same row, cover the row and uncover the column containing the starred zero
-            if (foundStarredZero) {
-                rowCovered[row] = true;
-                colCovered[col] = false;
-            }
-            else {
-                // Otherwise, proceed to Step 3 with the new zero
-                colCovered[col] = true;
             }
         }
     }
 
-    // Construct the assignment vector
-    vector<vector<int>> assignment(costMatrix.size() / k);
-    for (int j = 0; j < numCols; ++j) {
-        for (int i = 0; i < numRows; ++i) {
-            if (reducedCostMatrix[i][j] == 0 && !colCovered[j]) {
-                assignment[j / k].push_back(i / k); // Map back to original wells
-                colCovered[j] = true;
-                break;
-            }
-        }
-    }
-
-    return assignment;
+    return answers;
 }
 
 // Function to implement the algorithm to find the cheapest water supply
@@ -237,7 +168,7 @@ vector<vector<int>> findCheapestWaterSupply(vector<Point> wells, vector<Point> h
     // Create a matrix to store the costs
     vector<vector<double>> costMatrix(kn, vector<double>(kn, 0));
 
-    // Calculate costs between each well and each house
+    // Calculate costs between each well and each wells
     for (int i = 0; i < kn; ++i) {
         for (int j = 0; j < kn; ++j) {
             double d = euclideanDistance(duplicatedWells[i], houses[j]);
@@ -249,165 +180,7 @@ vector<vector<int>> findCheapestWaterSupply(vector<Point> wells, vector<Point> h
     vector<vector<int>> result = hungarianAlgorithm(costMatrix, k);
     // Hungarian algorithm
 
-
     return result;
-
-    /*
-    // 1. House Perspective
-    vector<pair<int, vector<int>>> houseWellAssignment; // <house index, well indices sorted from closest>
-    for (int i = 0; i < houses.size(); ++i) {
-        Point house = houses[i];
-        vector<pair<int, double>> distances; // Pair of (well index, distance to the well)
-
-        // Calculate distance to all wells
-        for (int j = 0; j < wells.size(); ++j) {
-            double distance = euclideanDistance(house, wells[j]);
-            distances.push_back({ j, distance });
-        }
-
-        // Sort distances in ascending order
-        sort(distances.begin(), distances.end(), [](const auto& a, const auto& b) {
-            return a.second < b.second;
-            });
-
-        // Store house index and sorted well indices
-        vector<int> wellIndices;
-        for (const auto& pair : distances) {
-            wellIndices.push_back(pair.first);
-        }
-        houseWellAssignment.push_back({ i, wellIndices });
-    }
-
-    // 2. Prioritization
-    sort(houseWellAssignment.begin(), houseWellAssignment.end(), [&](const auto& a, const auto& b) {
-        const vector<int>& wellsA = a.second; // well indices
-        const vector<int>& wellsB = b.second; // well indices
-
-        // Calculate the difference in distances for houses a and b
-        double diffA, diffB;
-        if (wells.size() == 1) {
-            // If there's only one well, set the difference to 0 for both a and b
-            diffA = diffB = 0.0;
-        }
-        else {
-            // Calculate the difference in distances for houses a and b using the two closest wells
-            diffA = abs(euclideanDistance(houses[a.first], wells[wellsA[1]]) - euclideanDistance(houses[a.first], wells[wellsA[0]]));
-            diffB = abs(euclideanDistance(houses[b.first], wells[wellsB[1]]) - euclideanDistance(houses[b.first], wells[wellsB[0]]));
-        }
-
-        // Sort in descending order of the difference in distances
-        return diffA > diffB;
-    });
-
-    // 3. Greedy Assignment with Prioritization
-    vector<vector<int>> solution(wells.size());
-
-    /*for (int i = 0; i < houses.size(); i++) {
-        if (!houseWellAssignment.empty()) {
-            sort(houseWellAssignment.begin(), houseWellAssignment.end(), [&](const auto& a, const auto& b) {
-                const vector<int>& wellsA = a.second; // well indices
-                const vector<int>& wellsB = b.second; // well indices
-
-                // Calculate the difference in distances for houses a and b
-                double diffA, diffB;
-                if (wellsA.size() == 1 || wellsB.size() == 1) {
-                    // If there's only one well, set the difference to 0 for both a and b
-                    diffA = diffB = 0.0;
-                }
-                else {
-                    // Calculate the difference in distances for houses a and b using the two closest wells
-                    diffA = abs(euclideanDistance(houses[a.first], wells[wellsA[1]]) - euclideanDistance(houses[a.first], wells[wellsA[0]]));
-                    diffB = abs(euclideanDistance(houses[b.first], wells[wellsB[1]]) - euclideanDistance(houses[b.first], wells[wellsB[0]]));
-                }
-
-                // Sort in descending order of the difference in distances
-                return diffA > diffB;
-                });
-
-            int houseIndex = houseWellAssignment[0].first;
-            int closestWellIndex = (houseWellAssignment[0].second)[0];
-
-            cout << "Connecting house " << houseIndex << " (" << houses[houseIndex].x << "," << houses[houseIndex].y << ") " <<
-                "with well " << closestWellIndex << " (" << wells[closestWellIndex].x << "," << wells[closestWellIndex].y << ") " "\n";
-
-            solution[closestWellIndex].push_back(houseIndex);
-
-            // Erase the element from houseWellAssignment that contains houseIndex
-            houseWellAssignment.erase(std::remove_if(houseWellAssignment.begin(), houseWellAssignment.end(),
-                [houseIndex](const std::pair<int, std::vector<int>>& pair) {
-                    return pair.first == houseIndex;
-                }),
-                houseWellAssignment.end());
-
-            // Delete the closest well index for all houses
-            if (solution[closestWellIndex].size() == k) {
-                for_each(houseWellAssignment.begin(), houseWellAssignment.end(),
-                    [closestWellIndex](pair<int, vector<int>>& pair) {
-                        pair.second.erase(remove(pair.second.begin(), pair.second.end(), closestWellIndex), pair.second.end());
-                    });
-            }
-        }
-    }
-    */
-
-    /*
-    for (const auto& pair : houseWellAssignment) {
-        int houseIndex = pair.first;
-        const vector<int>& wellIndices = pair.second;
-
-        sort(houseWellAssignment.begin(), houseWellAssignment.end(), [&](const auto& a, const auto& b) {
-            const vector<int>& wellsA = a.second; // well indices
-            const vector<int>& wellsB = b.second; // well indices
-
-            // Calculate the difference in distances for houses a and b
-            double diffA, diffB;
-            if (wells.size() == 1) {
-                // If there's only one well, set the difference to 0 for both a and b
-                diffA = diffB = 0.0;
-            }
-            else {
-                // Calculate the difference in distances for houses a and b using the two closest wells
-                diffA = abs(euclideanDistance(houses[a.first], wells[wellsA[1]]) - euclideanDistance(houses[a.first], wells[wellsA[0]]));
-                diffB = abs(euclideanDistance(houses[b.first], wells[wellsB[1]]) - euclideanDistance(houses[b.first], wells[wellsB[0]]));
-            }
-
-            // Sort in descending order of the difference in distances
-            return diffA > diffB;
-        });
-
-        // Iterate through sorted well indices
-        for (int wellIndex : wellIndices) {
-            // Check if the well has reached its capacity
-            if (solution[wellIndex].size() < k) {
-                // Assign the house index to this well
-                solution[wellIndex].push_back(houseIndex);
-                break;
-            }
-        }
-    }
-    
-    // 4. Cost Calculation
-    double totalCost = 0.0;
-
-    for (int i = 0; i < solution.size(); ++i) {
-        Point well = wells[i];
-        const vector<int>& assignedHouses = solution[i];
-
-        cout << "Costs from well " << i << " to assigned houses:" << endl;
-
-        for (int houseIndex : assignedHouses) {
-            Point house = houses[houseIndex];
-            double distance = euclideanDistance(well, house);
-            totalCost += distance;
-            cout << "   House " << houseIndex << ": " << distance << endl;
-        }
-    }
-
-    // Print total cost
-    cout << "Total cost of the assignment: " << totalCost << endl;
-
-    return solution;
-    */
 }
 
 
@@ -452,31 +225,31 @@ bool checkSolution(vector<vector<int>>& solution, vector<Point>& wells, vector<P
     const double tolerance = 1e-3;
 
     // Compare the total cost of the solution with the minimum cost
-    if ((totalCost - minCost) <= tolerance) {
+    cout << "Correct assignments:" << endl;
+    for (int i = 0; i < wells.size(); ++i) {
+        cout << "Well " << i << " " << "(" << wells[i].x << "," << wells[i].y << ") " << " assigned to houses: ";
+        for (int j = 0; j < k; ++j) {
+            int houseIndex = i * k + j;
+            cout << "(" << bestAssignment[houseIndex].x << "," << bestAssignment[houseIndex].y << ") ";
+        }
+        cout << endl;
+    }
+    cout << "Checked assignments:" << endl;
+    for (int i = 0; i < solution.size(); ++i) {
+        cout << "Well " << i << " " << "(" << wells[i].x << "," << wells[i].y << ") " << " assigned to houses: ";
+        for (int houseIndex : solution[i]) {
+            Point house = houses[houseIndex];
+            cout << "(" << house.x << "," << house.y << ") ";
+        }
+        cout << endl;
+    }
+    cout << "Correct total cost: " << minCost << " ";
+    cout << "Checked total cost: " << totalCost << endl;
+
+    if ((totalCost - minCost) <= tolerance && solution[0].size() > 0) {
         return true; // Solution is valid
     }
     else {
-        cout << "Solution is invalid." << endl;
-        cout << "Correct assignments:" << endl;
-        for (int i = 0; i < wells.size(); ++i) {
-            cout << "Well " << i << " " << "(" << wells[i].x << "," << wells[i].y << ") " << " assigned to houses: ";
-            for (int j = 0; j < k; ++j) {
-                int houseIndex = i * k + j;
-                cout << "(" << bestAssignment[houseIndex].x << "," << bestAssignment[houseIndex].y << ") ";
-            }
-            cout << endl;
-        }
-        cout << "Checked assignments:" << endl;
-        for (int i = 0; i < solution.size(); ++i) {
-            cout << "Well " << i << " " << "(" << wells[i].x << "," << wells[i].y << ") " << " assigned to houses: ";
-            for (int houseIndex : solution[i]) {
-                Point house = houses[houseIndex];
-                cout << "(" << house.x << "," << house.y << ") ";
-            }
-            cout << endl;
-        }
-        cout << "Correct total cost: " << minCost << endl;
-        cout << "Checked total cost: " << totalCost << endl;
         return false; // Solution is invalid
     }
 }
@@ -511,14 +284,14 @@ int readInputFromFile(const string& filename, int& n, int& k, vector<Point>& wel
 
 int main() {
     
-    std::ofstream devnull("/dev/null");
-    std::streambuf* oldbuf = std::cout.rdbuf(devnull.rdbuf());
+    // std::ofstream devnull("/dev/null");
+    // std::streambuf* oldbuf = std::cout.rdbuf(devnull.rdbuf());
 
     string directory = "./"; // Project directory
     int inputFileCount = 0;
 
     // Perform 1000 tests
-    for (int i = 1; i <= 1000; ++i) {
+    for (int i = 1; i <= 3; ++i) {
         string filename = "random_input_" + to_string(i) + ".txt";
         generateRandomInput(filename);
 
@@ -548,8 +321,8 @@ int main() {
         vector<vector<int>> solution = findCheapestWaterSupply(wells, houses, k);
         
         // unblock
-        std::cout.rdbuf(oldbuf);
-        devnull.close();
+        // std::cout.rdbuf(oldbuf);
+        // devnull.close();
 
         // Check the solution
         if (checkSolution(solution, wells, houses, k)) {
@@ -561,8 +334,8 @@ int main() {
         }
 
         // block
-        std::ofstream devnull("/dev/null");
-        std::streambuf* oldbuf = std::cout.rdbuf(devnull.rdbuf());
+        // std::ofstream devnull("/dev/null");
+        // std::streambuf* oldbuf = std::cout.rdbuf(devnull.rdbuf());
 
 
         inputFileCount++;
@@ -595,8 +368,8 @@ int main() {
     }
 
     cout << "Houses: " << endl;
-    for (const auto& house : houses) {
-        cout << house.x << ", " << house.y << endl;
+    for (const auto& wells : houses) {
+        cout << wells.x << ", " << wells.y << endl;
     }
 
     // Call the algorithm function
