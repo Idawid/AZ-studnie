@@ -287,7 +287,7 @@ int main() {
     // std::ofstream devnull("/dev/null");
     // std::streambuf* oldbuf = std::cout.rdbuf(devnull.rdbuf());
 
-    string directory = "./"; // Project directory
+    string directory = "./test"; // Project directory
     int inputFileCount = 0;
 
     // Perform 1000 tests
