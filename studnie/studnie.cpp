@@ -286,6 +286,7 @@ int main() {
     
     // std::ofstream devnull("/dev/null");
     // std::streambuf* oldbuf = std::cout.rdbuf(devnull.rdbuf());
+<<<<<<< HEAD
 
     string directory = "./test"; // Project directory
     int inputFileCount = 0;
@@ -293,6 +294,19 @@ int main() {
     // Perform 1000 tests
     for (int i = 1; i <= 3; ++i) {
         string filename = "random_input_" + to_string(i) + ".txt";
+=======
+
+    string inputDir = "./inputs/"; // Project directory
+    if (!fs::exists(inputDir)) {
+        fs::create_directory(inputDir);
+    }
+
+    int inputFileCount = 0;
+
+    // Perform 1000 tests
+    for (int i = 1; i <= 10; ++i) {
+        string filename = inputDir + "random_input_" + to_string(i) + ".txt";
+>>>>>>> 198f35d (dir)
         generateRandomInput(filename);
 
         // Read input from the generated file
