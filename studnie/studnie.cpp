@@ -3,19 +3,16 @@
 #include <vector>
 #include <random>
 #include <cmath>
+#include <string>
+#include <cassert>
 #include <algorithm>
 #include <filesystem>
-#include <lemon/list_graph.h>
-#include <lemon/network_simplex.h>
-#include <lemon/matching.h>
-#include <opencv2/opencv.hpp>
 
 #define E 10000
 
 const int INF = 1e9;
 
 using namespace std;
-using namespace lemon;
 namespace fs = std::filesystem;
 
 struct Point {
@@ -286,15 +283,6 @@ int main() {
     
     // std::ofstream devnull("/dev/null");
     // std::streambuf* oldbuf = std::cout.rdbuf(devnull.rdbuf());
-<<<<<<< HEAD
-
-    string directory = "./test"; // Project directory
-    int inputFileCount = 0;
-
-    // Perform 1000 tests
-    for (int i = 1; i <= 3; ++i) {
-        string filename = "random_input_" + to_string(i) + ".txt";
-=======
 
     string inputDir = "./inputs/"; // Project directory
     if (!fs::exists(inputDir)) {
@@ -306,7 +294,6 @@ int main() {
     // Perform 1000 tests
     for (int i = 1; i <= 10; ++i) {
         string filename = inputDir + "random_input_" + to_string(i) + ".txt";
->>>>>>> 198f35d (dir)
         generateRandomInput(filename);
 
         // Read input from the generated file
@@ -361,41 +348,4 @@ int main() {
 
     return 0;
 
-    
-    /*
-    string filename = "input.txt";
-
-    int n, k;
-    vector<Point> wells, houses;
-
-    if (readInputFromFile(filename, n, k, wells, houses) == -1) {
-        cerr << "Error reading input from file: " << filename << endl;
-    }
-
-    cout << "File " << filename << ":" << endl;
-    cout << "Number of wells: " << n << endl;
-    cout << "Number of houses each well supplies: " << k << endl;
-
-    cout << "Wells: " << endl;
-    for (const auto& well : wells) {
-        cout << well.x << ", " << well.y << endl;
-    }
-
-    cout << "Houses: " << endl;
-    for (const auto& wells : houses) {
-        cout << wells.x << ", " << wells.y << endl;
-    }
-
-    // Call the algorithm function
-    vector<vector<int>> solution = findCheapestWaterSupply(wells, houses, k);
-
-    // Check the solution
-    if (checkSolution(solution, wells, houses, k)) {
-        cout << "Solution is valid." << endl;
-    }
-    else {
-        cout << "Solution is invalid." << endl;
-    }
-    */
-    return 0;
 }
