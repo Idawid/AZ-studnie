@@ -111,6 +111,15 @@ int findIndexOfVertex(const vector<Node>& nodes, int vertexIndex) {
     return -1;
 }
 
+vector<Node> createAlternatingPath(vector<Node>& nodes, vector<Edge>& edges, vector<Node>& equalityGraph) {
+    int alternatingPathStart = findNotAssignedWell(nodes, edges, equalityGraph);
+    vector<Node> alternatingPath;
+    int indexInEqualityGraph = findIndexOfVertex(equalityGraph, alternatingPathStart);
+    Node startNode = equalityGraph[indexInEqualityGraph];
+    alternatingPath.push_back(startNode);
+}
+
+// znajduje maksymalny wiec wagi beda musialy byc ujemne
 vector<vector<int>> hunigerianAlgorithm(vector<Node> nodes, vector<Edge> edges) {
     resetVisited(nodes);
     initializeLabels(nodes, edges);
@@ -118,13 +127,12 @@ vector<vector<int>> hunigerianAlgorithm(vector<Node> nodes, vector<Edge> edges) 
     
     vector<Node> currentMatching;
     while(currentMatching.size() < nodes.size()/2) {
-        int alternatingPathStart = findNotAssignedWell(nodes, edges, equalityGraph);
-        vector<Node> alternatingPath;
-        int indexInEqualityGraph = findIndexOfVertex(equalityGraph, alternatingPathStart);
-        Node startNode = equalityGraph[indexInEqualityGraph];
-        alternatingPath.push_back(startNode);
-        while(alternatingPath.size() % 2 == 0) {
-            
+        
+        vector<Node> alternatingPath = createAlternatingPath(nodes, edges, equalityGraph);
+        if(alternatingPath.size() % 2 == 0) {
+            // create new matching 
+        } else {
+            // recalculate labels
         }
     }
 
